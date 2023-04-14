@@ -1,39 +1,44 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { isNull, isObject } from 'lodash';
 
 import {
   getDataFromLocalStorage,
   setDataToLocalStorage,
 } from '../service/localStorage';
 import { requestIfNeeded } from '../service/charcterCache';
-
 import { http } from '../service/http';
-import { isNull, isObject } from 'lodash';
-
 import { isExpired } from '../service/timeUtils';
-
+import { settings } from '../config/settings';
 import { urlGenerator } from '../service/urlGenerator';
+import Timer from '../components/common/Timer';
 
 const storageKey = 'characters';
 
 export default function CharactersInfo() {
   const [character, setCharacter] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [time, setTime] = useState(0);
   const location = useLocation();
   // const [searchParams] = useSearchParams();
   const characterId = location.state.id;
 
+  const url = urlGenerator({
+    urlPath: '/api/people/' + characterId,
+  });
+
+  // const homeWorldURL = urlGenerator({
+  //   urlPath: '/api/planets/' + planetId,
+  // });
+
   const getCharacterInfo = useCallback(() => {
     setIsLoading(true);
-
-    const url = urlGenerator({
-      urlPath: '/api/people/' + characterId,
-    });
 
     const callbacks = {
       onSuccess: response => {
         const characterData = response?.data;
+        const { homeWorldURL } = characterData;
         setCharacter(characterData);
         setIsLoading(false);
         const cachedCharacters = getDataFromLocalStorage(storageKey) ?? {};
@@ -42,6 +47,16 @@ export default function CharactersInfo() {
         toast.success(`Character Info has loaded successfully.`, {
           position: toast.POSITION.BOTTOM_RIGHT,
         });
+
+        // http.get(homeWorldURL, {
+        //   onSuccess: response => {
+        //     console.log('response', response);
+
+        //     toast.success(`Planet Info has loaded successfully.`, {
+        //       position: toast.POSITION.BOTTOM_RIGHT,
+        //     });
+        //   },
+        // });
       },
       onError: error => {
         setIsLoading(false);
@@ -50,9 +65,8 @@ export default function CharactersInfo() {
         });
       },
     };
-
     http.get(url, callbacks);
-  }, [characterId]);
+  }, [characterId, url]);
 
   const handleRefresh = () => {
     const storageKey = 'characters';
@@ -66,7 +80,12 @@ export default function CharactersInfo() {
         },
       },
       cachedData => {
-        return isExpired(cachedData[characterId][1], new Date().getTime(), 15);
+        setTime(cachedData[characterId][1]);
+        return isExpired(
+          cachedData[characterId][1],
+          new Date().getTime(),
+          settings.exprationTime.charachterInfoCaching
+        );
       }
     );
   };
@@ -82,14 +101,22 @@ export default function CharactersInfo() {
         },
       },
       cachedData => {
-        return isExpired(cachedData[characterId][1], new Date().getTime(), 15);
+        setTime(cachedData[characterId][1]);
+        return isExpired(
+          cachedData[characterId][1],
+          new Date().getTime(),
+          settings.exprationTime.charachterInfoCaching
+        );
       }
     );
   }, [characterId, getCharacterInfo]);
 
   return (
     <div className='characters-info p-5'>
-      <h1>Character Info</h1>
+      <div className='d-flex justify-content-between'>
+        <h1>Character Info </h1>
+        <Timer initialTime={Math.floor((new Date().getTime() - time) / 1000)} />
+      </div>
       {isLoading && <div> Loading ...</div>}
       {!isLoading && isNull(character) && (
         <div className='d-flex flex-column bg-light rounded-4 justify-content-center align-items-center p-5 h-100'>
@@ -108,8 +135,8 @@ export default function CharactersInfo() {
         </div>
       )}
       {isObject(character) && (
-        <table>
-          <thead>
+        <table className='table table-striped rounded-2 overflow-hidden'>
+          <thead class='table-dark'>
             <tr>
               <th>Specification</th>
               <th>Value</th>
@@ -149,7 +176,6 @@ export default function CharactersInfo() {
           </tbody>
         </table>
       )}
-
       <div className='character-info-segment'></div>
     </div>
   );

@@ -132,6 +132,10 @@ function TableRow({ character }) {
   );
 }
 
+const url = urlGenerator({
+  urlPath: '/api/people',
+});
+
 export default function CharactersList() {
   const [characters, setCharacters] = useState(null);
   const [pageCount, setPageCount] = useState(null);
@@ -146,10 +150,6 @@ export default function CharactersList() {
     setTotalCharactersCount,
   } = useContext(CharactersContext);
 
-  const url = urlGenerator({
-    urlPath: '/api/people',
-  });
-
   const handleRefresh = () => {
     setError(false);
     if (has(charactersCache, currentPage)) {
@@ -159,6 +159,7 @@ export default function CharactersList() {
       const callbacks = {
         onSuccess: response => {
           const count = response?.data?.count;
+
           const charactersList = response?.data?.results;
           setCharacters(charactersList);
           const newCharactersCache = {
